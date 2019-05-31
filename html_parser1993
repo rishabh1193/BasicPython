@@ -1,0 +1,97 @@
+from urllib.request import urlopen as uReq
+import re
+from bs4 import BeautifulSoup as soup
+url = "https://www.sec.gov/Archives/edgar/data/1556727/000093905718000107/fnwbancproxy18.htm"
+#FIRST NORTHWEST BANCORP - success
+#OKTA, INC. -success
+#box inc - success
+
+#opening up connectin , reading the page
+uClient = uReq(url)
+page_html = uClient.read()
+uClient.close()
+
+# Parsing html to make a soup
+page_soup = soup(page_html, "html.parser")
+
+# with open("exec_out.html", "w") as file:
+#     file.write(page_soup.prettify())
+# print("output is written in a file")
+
+temp_header_list = []
+headers = []
+output_rows = []
+string_1 = page_soup(text=re.compile("Summary Compensation"))
+print(len(string_1))
+# print(string_1)
+
+
+#Start of loop
+for string1 in string_1:
+    
+# Finding SCT Table
+    try:
+        table_tag = string1.parent.findNext('table')
+        table_len = len(table_tag)
+        if table_len>= 6:
+            print("A Table is found, checking if that is SCT table ")
+            parent_1 = string1.parent
+            #parent_2 = parent_1.parent
+            next_table_tag = parent_1.findNext('table')
+            #print(next_table_tag.get_text())
+            
+            
+            d1 = next_table_tag(text=re.compile("Principal"))
+            d1_splitted = d1[0].split(" ")
+            # print("here is d1 tag")
+            # print(d1)
+            if len(d1)>0:
+                #print(next_table_tag.prettify())
+                print("SCT table found")
+            else:
+                print("This is not SCT table")
+            
+
+# Fetching data from SCT table
+            if "Principal" in d1_splitted:
+                print("Fetching data from SCT table")
+                
+                for table_row in next_table_tag.findAll('tr'):
+                    columns = table_row.findAll('td')
+                    output_row = []
+                    counter=0
+                    for column in columns:
+                        # if (counter%2)==0:   
+                        #     output_row.append(column.get_text())
+                        #     counter+=1
+
+                        
+                        match = re.search('\\xa0', column.get_text())           #searching in whole list, not in specific element
+                        #print(match)
+                        if match:
+                            pass
+                        else:
+                            # print("pattern not found")
+                            output_row.append(column.get_text())
+                        
+                    #print("HEre is a row")
+                    #print(output_row)
+                    output_rows.append(output_row)
+
+            print("below is data in tablular format")
+            print(output_rows)
+            print(len(output_rows))
+
+    except Exception as ex:
+        #print("SCT keyword found but a table was not found after it. ")
+        print("pass")
+
+print("Good Bye! ")
+
+#For saving the table to a csv file
+filename = "tables_output_bancorp.csv"
+with open(filename, "w") as f:
+    for row in output_rows:
+        f.write(str(row) +"\n")
+
+f.close()

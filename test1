@@ -1,0 +1,77 @@
+from urllib.request import urlopen as uReq
+import re
+from bs4 import BeautifulSoup as soup
+import csv
+url = "https://www.sec.gov/Archives/edgar/data/1058057/000119312519149399/d713236ddef14a.htm#toc713236_19"
+#FIRST NORTHWEST BANCORP - success , some values not read coz of &#160 tag before it
+#OKTA, INC. - success, 3 times repeat, 1 small row shift
+#box inc - success - identification of "-" blank values fail
+#semtec - failed to identify table, table present inside same table tag
+#secureworks - table not identified - andprincipal is causing fail
+#health equity - success,2 times repeat, shift in 1 row
+#guess - failed to fetch data from table
+#marvell - success -  some headers got missed
+# genesco - success - some headers and values are missing
+# cloudera - success
+
+#opening up connection , reading the page
+uClient = uReq(url)
+page_html = uClient.read()
+uClient.close()
+
+# Parsing html to make a soup
+page_soup = soup(page_html, "html.parser")
+
+output_rows = []
+string_1 = page_soup(text=re.compile("Summary Compensation"))
+print(len(string_1))
+# print(string_1)
+
+#Start of loop
+for string1 in string_1:
+    
+# Finding SCT Table
+    try:
+        table_tag = string1.parent.findNext('table')
+        table_len = len(table_tag)
+        if table_len>= 6:
+            print("A Table is found, checking if that is SCT table ")
+            parent_1 = string1.parent
+            #parent_2 = parent_1.parent
+            next_table_tag = parent_1.findNext('table')
+            #print(next_table_tag.get_text())       
+            
+            d1 = next_table_tag(text=re.compile("Principal"))
+            d1_splitted = d1[0].split(" ")
+            d1_splitted.append(d1[0].replace(u'\xa0', u' '))
+            
+            if len(d1)>0:
+                #print(next_table_tag.prettify())
+                print("SCT table found")
+            else:
+                print("This is not SCT table")
+            
+#Conditional block            
+            condition_1 = 0                             # This is for checking "principal" keyword 
+            for con in d1_splitted:
+                if "Principal" in con:
+                    condition_1 = 1
+                else:
+                    pass
+
+# Fetching data from SCT table
+            if condition_1==1:
+                print("Fetching data from SCT table")
+                
+                with open("marvel_out.csv", "w") as f:
+                    wr = csv.writer(f)
+                    wr.writerows([[column.text.encode("utf-8") for column in table_row.findAll(["th","td"])] for table_row in next_table_tag.findAll('tr')])
+                    print("Table has been fetched from respective html page, and written in the file")
+           
+                f.close()       
+
+    except Exception as ex:
+        #print("SCT keyword found but a table was not found after it. ")
+        print("pass")
+
+print("Good Bye! ")
